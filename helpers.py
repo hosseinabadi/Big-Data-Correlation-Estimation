@@ -56,101 +56,106 @@ def validate_and_fix_schema(df, expected_schema):
                 df = df.with_columns(df[col].cast(expected_type).alias(col))
     return df
 
-def get_buckets(df, deltat = 5, only_trading_hours = True, opening_hour = "10:00:00", closing_hour = "15:30:00"):
-    date_list = df["datetime"].dt.date().unique()
+def get_buckets(assets_data, deltat = 5, only_trading_hours = True, opening_hour = "10:00:00", closing_hour = "15:30:00"):
+    clean_assets = {}
+    for asset_name, df in assets_data.items():
+        date_list = df["datetime"].dt.date().unique()
 
-    df = df.with_columns(
-        (df["datetime"].cast(float)/1e6 // deltat * deltat).alias('time-bucket')
-    )
-
-    result = df.group_by("time-bucket").agg([
-        ((((pl.col("ask-price")*pl.col("ask-volume")).sum() / pl.col("ask-volume").sum()) + 
-         ((pl.col("bid-price")*pl.col("bid-volume")).sum() / pl.col("bid-volume").sum())) / 2).alias("weighted-avg-price")
-    ])
-    
-    
-
-    result = result.with_columns(
-        (result["time-bucket"].map_elements(lambda x: datetime.utcfromtimestamp(x))),
-        result["weighted-avg-price"].cast(float).alias("weighted-avg-price")
-    )
-    result = result.with_columns(pl.col("time-bucket").dt.convert_time_zone("America/New_York"))
-    result = result.fill_nan(None)
-    result = result.sort("time-bucket")
-
-    # Convert start and end dates to datetime
-    start_time = datetime.strptime("2007-01-01", "%Y-%m-%d")
-    end_time = datetime.strptime("2012-12-31", "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-    # Generate time series with pl.date_range
-    time_series = pl.DataFrame({
-        "time-bucket": pl.datetime_range(
-            start=start_time,
-            end=end_time,
-            interval=f"{deltat}s",  # Step size in seconds
-            eager=True,
-            time_zone = "America/New_York"
+        df = df.with_columns(
+            (df["datetime"].cast(float)/1e6 // deltat * deltat).alias('time-bucket')
         )
-    })
-    
-    result = result.join(time_series, on="time-bucket", how="full")
-    result = result.select([
-        pl.col("weighted-avg-price").alias("weighted-avg-price"),  
-        pl.col("time-bucket_right").alias("time-bucket") 
-    ])
-    result = result.sort("time-bucket")
-    result = result.select(pl.all().forward_fill())
-    result = result.drop_nulls()
 
-    if only_trading_hours:
-        hh_open,mm_open,ss_open = [float(x) for x in opening_hour.split(":")]
-        hh_close,mm_close,ss_close = [float(x) for x in closing_hour.split(":")]
+        result = df.group_by("time-bucket").agg([
+            ((((pl.col("ask-price")*pl.col("ask-volume")).sum() / pl.col("ask-volume").sum()) + 
+            ((pl.col("bid-price")*pl.col("bid-volume")).sum() / pl.col("bid-volume").sum())) / 2).alias("weighted-avg-price")
+        ])
+        
+        
 
-        seconds_open=hh_open*3600+mm_open*60+ss_open
-        seconds_close=hh_close*3600+mm_close*60+ss_close
+        result = result.with_columns(
+            (result["time-bucket"].map_elements(lambda x: datetime.utcfromtimestamp(x))),
+            result["weighted-avg-price"].cast(float).alias("weighted-avg-price")
+        )
+        result = result.with_columns(pl.col("time-bucket").dt.convert_time_zone("America/New_York"))
+        result = result.fill_nan(None)
+        result = result.sort("time-bucket")
 
-        result = result.filter(pl.col('time-bucket').dt.hour().cast(float)*3600+pl.col('time-bucket').dt.minute().cast(float)*60+pl.col('time-bucket').dt.second()>=seconds_open,
-                       pl.col('time-bucket').dt.hour().cast(float)*3600+pl.col('time-bucket').dt.minute().cast(float)*60+pl.col('time-bucket').dt.second()<=seconds_close)
+        # Convert start and end dates to datetime
+        start_time = datetime.strptime("2007-01-01", "%Y-%m-%d")
+        end_time = datetime.strptime("2012-12-31", "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+        # Generate time series with pl.date_range
+        time_series = pl.DataFrame({
+            "time-bucket": pl.datetime_range(
+                start=start_time,
+                end=end_time,
+                interval=f"{deltat}s",  # Step size in seconds
+                eager=True,
+                time_zone = "America/New_York"
+            )
+        })
+        
+        result = result.join(time_series, on="time-bucket", how="full")
+        result = result.select([
+            pl.col("weighted-avg-price").alias("weighted-avg-price"),  
+            pl.col("time-bucket_right").alias("time-bucket") 
+        ])
+        result = result.sort("time-bucket")
+        result = result.select(pl.all().forward_fill())
+        result = result.drop_nulls()
 
+        if only_trading_hours:
+            hh_open,mm_open,ss_open = [float(x) for x in opening_hour.split(":")]
+            hh_close,mm_close,ss_close = [float(x) for x in closing_hour.split(":")]
 
-    result = result.filter(
-        pl.col("time-bucket").dt.date().is_in(date_list)
-    )
-    return result.sort("time-bucket")
+            seconds_open=hh_open*3600+mm_open*60+ss_open
+            seconds_close=hh_close*3600+mm_close*60+ss_close
 
-def remove_outliers(df, ticker = ""):
-    upper_bounds = {"EDEN": None, "EFNL": 900, "EIS": 100, "EUSA": {2010: 27.8, 2011:35}, "EWA": 900, "EWC": {2009:28, 2010: 900, 2011: 900, 2012: 900}, "EWD": 900, "EWG": 900, "EWH": 25, "EWI": {2011: 21.5}, "EWJ": 900, "EWK": 22.5, "EWL": 75, "EWN": 75, "EWO": 50, "EWP": 55, "EWQ": 29, "EWS": 20, "EWT": {2009: 14}, "EWU": {2009: 100, 2012: 20}, "EWW": 900, "EWY":900, "EWZ": 900, "INDA": {2012: 30}, "MCHI": 900}
-    lower_bounds = {"EDEN": None, "EFNL": -900, "EIS": -900, "EUSA": -900, "EWA": -900, "EWC": -900, "EWD": {2010: 13}, "EWG": {2009:13.2}, "EWH": -900, "EWI": -900, "EWJ": -900, "EWK": {2010: 9}, "EWL": {2011: 15}, "EWN": {2010: 15, 2011: 14}, "EWO": -900, "EWP": -900, "EWQ": -900, "EWS": {2011: 8}, "EWT": {2011: 9}, "EWU": -900, "EWW": -900, "EWY":-900, "EWZ": -900, "INDA": -900, "MCHI": -900} 
-    # Define thresholds for each year
-    upper_bound = upper_bounds.get(ticker, 900)
-    lower_bound = lower_bounds.get(ticker, -900)
-
-    if upper_bound == None:
-        print("This data is problematic")
-        upper_bound = 900
-        lower_bound = -900
-    if type(upper_bound) == int or type(upper_bound) == float:
-        upper_bound = {year: upper_bound for year in range(2009, 2013)}
-    if type(lower_bound) == int or type(lower_bound) == float:
-        lower_bound = {year: lower_bound for year in range(2009, 2013)}
-    
-
-    # Extract year from the time-bucket column
-    df = df.with_columns(
-        pl.col("time-bucket").dt.year().alias("year")
-    )
-    
-    # Apply different thresholds for each year
-    result = df.with_columns(
-        pl.when((pl.col("weighted-avg-price") > pl.col("year").map_elements(lambda year: upper_bound.get(year, float('inf')))) | (pl.col("weighted-avg-price") < pl.col("year").map_elements(lambda year: lower_bound.get(year, float('-inf')))))
-        .then(None)
-        .otherwise(pl.col("weighted-avg-price"))
-        .alias("weighted-avg-price")
-    ).drop("year")
+            result = result.filter(pl.col('time-bucket').dt.hour().cast(float)*3600+pl.col('time-bucket').dt.minute().cast(float)*60+pl.col('time-bucket').dt.second()>=seconds_open,
+                        pl.col('time-bucket').dt.hour().cast(float)*3600+pl.col('time-bucket').dt.minute().cast(float)*60+pl.col('time-bucket').dt.second()<=seconds_close)
 
 
-    result = result.select(pl.all().forward_fill())
+        result = result.filter(
+            pl.col("time-bucket").dt.date().is_in(date_list)
+        )
+        clean_assets[asset_name] = result.sort("time-bucket")
+    return clean_assets
 
-    return result.sort("time-bucket")
+def remove_outliers(bucketed_data):
+    clean_data = {}
+    for ticker, df in bucketed_data.items():
+        upper_bounds = {"EDEN": None, "EFNL": 900, "EIS": 100, "EUSA": {2010: 27.8, 2011:35}, "EWA": 900, "EWC": {2009:28, 2010: 900, 2011: 900, 2012: 900}, "EWD": 900, "EWG": 900, "EWH": 25, "EWI": {2011: 21.5}, "EWJ": 900, "EWK": 22.5, "EWL": 75, "EWN": 75, "EWO": 50, "EWP": 55, "EWQ": 29, "EWS": 20, "EWT": {2009: 14}, "EWU": {2009: 100, 2012: 20}, "EWW": 900, "EWY":900, "EWZ": 900, "INDA": {2012: 30}, "MCHI": 900}
+        lower_bounds = {"EDEN": None, "EFNL": -900, "EIS": -900, "EUSA": -900, "EWA": -900, "EWC": -900, "EWD": {2010: 13}, "EWG": {2009:13.2}, "EWH": -900, "EWI": -900, "EWJ": -900, "EWK": {2010: 9}, "EWL": {2011: 15}, "EWN": {2010: 15, 2011: 14}, "EWO": -900, "EWP": -900, "EWQ": -900, "EWS": {2011: 8}, "EWT": {2011: 9}, "EWU": -900, "EWW": -900, "EWY":-900, "EWZ": -900, "INDA": -900, "MCHI": -900} 
+        # Define thresholds for each year
+        upper_bound = upper_bounds.get(ticker, 900)
+        lower_bound = lower_bounds.get(ticker, -900)
+
+        if upper_bound == None:
+            print("This data is problematic")
+            upper_bound = 900
+            lower_bound = -900
+        if type(upper_bound) == int or type(upper_bound) == float:
+            upper_bound = {year: upper_bound for year in range(2009, 2013)}
+        if type(lower_bound) == int or type(lower_bound) == float:
+            lower_bound = {year: lower_bound for year in range(2009, 2013)}
+        
+
+        # Extract year from the time-bucket column
+        df = df.with_columns(
+            pl.col("time-bucket").dt.year().alias("year")
+        )
+        
+        # Apply different thresholds for each year
+        result = df.with_columns(
+            pl.when((pl.col("weighted-avg-price") > pl.col("year").map_elements(lambda year: upper_bound.get(year, float('inf')))) | (pl.col("weighted-avg-price") < pl.col("year").map_elements(lambda year: lower_bound.get(year, float('-inf')))))
+            .then(None)
+            .otherwise(pl.col("weighted-avg-price"))
+            .alias("weighted-avg-price")
+        ).drop("year")
+
+
+        result = result.select(pl.all().forward_fill())
+        clean_data[ticker] = result.sort("time-bucket")
+    return clean_data
 
 
 def get_raw_data(years, asset_names, print_log = True):
