@@ -38,8 +38,8 @@ project/
 │   │   ├── EWZ.parquet
 │   │   ├── INDA.parquet
 │   │   └── MCHI.parquet
-│
-├── ETFs/
+│   │
+│   ├── ETFs/
 │   ├── ETFs-2007.tar
 │   ├── ETFs-2008.tar
 │   ├── ETFs-2009.tar
