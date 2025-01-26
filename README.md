@@ -48,6 +48,7 @@ project/
 │   ├── ETFs-2011.tar
 │   └── ETFs-2012.tar
 │
+├── average_difference.ipynb
 ├── main.ipynb
 └── helpers.py
 ```
