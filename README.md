@@ -107,4 +107,5 @@ The project requires the following Python libraries:
 - `numpy`
 - `pyarrow` (for `.parquet` file handling)
 - `matplotlib` 
-- `scipy` 
+- `scipy`
+- `polars`
