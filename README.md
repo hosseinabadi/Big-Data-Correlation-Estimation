@@ -1,4 +1,4 @@
-# Big Data Correlation Estimation
+# Dynamic Correlation Analysis and Robust Covariance Estimation for Portfolio Optimization
 
 This project focuses on estimating covariance correlations in large-scale financial data, specifically using Countries ETF (Exchange-Traded Fund) data.
 
