@@ -42,12 +42,10 @@ def validate_and_fix_schema(df, expected_schema):
         if col not in df.columns:
             raise ValueError(f"Missing column: {col}")
         
-        # If the column type does not match the expected type
+        
         if df[col].dtype != expected_type:
-            # Handle Float64 columns
             if expected_type == pl.Float64:
                 df = df.with_columns(
-                    # Ensure the column is cast to Utf8 for string operations
                     pl.when(pl.col(col).cast(pl.Utf8).str.strip_chars().is_in(["", "()", None]))
                     .then(None)
                     .otherwise(pl.col(col).cast(pl.Utf8))
@@ -58,7 +56,6 @@ def validate_and_fix_schema(df, expected_schema):
             # Handle Int32 columns
             elif expected_type == pl.Int32:
                 df = df.with_columns(
-                    # Ensure the column is cast to Utf8 for string operations
                     pl.when(pl.col(col).cast(pl.Utf8).str.strip_chars().is_in(["", "()", None]))
                     .then(None)
                     .otherwise(pl.col(col).cast(pl.Utf8))
@@ -138,7 +135,7 @@ def get_buckets(assets_data, deltat = 5, only_trading_hours = True, opening_hour
 def remove_outliers(bucketed_data):
     clean_data = {}
     for ticker, df in bucketed_data.items():
-        upper_bounds = {"EDEN": None, "EFNL": 900, "EIS": 100, "EUSA": {2010: 27.8, 2011:35}, "EWA": 900, "EWC": {2009:28, 2010: 900, 2011: 900, 2012: 900}, "EWD": 900, "EWG": 900, "EWH": 25, "EWI": {2011: 21.5}, "EWJ": 900, "EWK": 22.5, "EWL": 75, "EWN": 75, "EWO": 50, "EWP": 55, "EWQ": 29, "EWS": 20, "EWT": {2009: 14}, "EWU": {2009: 100, 2012: 20}, "EWW": 900, "EWY":900, "EWZ": 900, "INDA": {2012: 30}, "MCHI": 900}
+        upper_bounds = {"EDEN": None, "EFNL": 900, "EIS": 100, "EUSA": {2010: 27.8, 2011:35}, "EWA": 900, "EWC": {2009:28, 2010: 900, 2011: 900, 2012: 900}, "EWD": 900, "EWG": 900, "EWH": 25, "EWI": {2011: 21.5}, "EWJ": 900, "EWK": 22.5, "EWL": 75, "EWN": 75, "EWO": {2009: 50, 2010: 50, 2011: 25, 2012: 21.5}, "EWP": 55, "EWQ": 29, "EWS": 20, "EWT": {2009: 14}, "EWU": {2009: 100, 2012: 20}, "EWW": 900, "EWY":900, "EWZ": 900, "INDA": {2012: 30}, "MCHI": 900}
         lower_bounds = {"EDEN": None, "EFNL": -900, "EIS": -900, "EUSA": -900, "EWA": -900, "EWC": -900, "EWD": {2010: 13}, "EWG": {2009:13.2}, "EWH": -900, "EWI": -900, "EWJ": -900, "EWK": {2010: 9}, "EWL": {2011: 15}, "EWN": {2010: 15, 2011: 14}, "EWO": -900, "EWP": -900, "EWQ": -900, "EWS": {2011: 8}, "EWT": {2011: 9}, "EWU": -900, "EWW": -900, "EWY":-900, "EWZ": -900, "INDA": -900, "MCHI": -900} 
         # Define thresholds for each year
         upper_bound = upper_bounds.get(ticker, 900)
@@ -255,161 +252,3 @@ def get_average_diffs(assets_data):
         print(f"Average time difference for {asset_name}: {average_diff}")
         average_diffs[asset_name] = average_diff
     return average_diffs
-
-# def get_average_diffs(years, assets_tickers):
-#     average_diffs = {}
-#     yearly_tar_files = [f"Data/ETFs/ETFs-{year}.tar" for year in years]
-#     schemas = {
-#         "bbo": {
-#             "xltime": pl.Float64,
-#             "bid-price": pl.Float64,
-#             "bid-volume": pl.Int32,
-#             "ask-price": pl.Float64,
-#             "ask-volume": pl.Int32,
-#         },
-#         "trade": {
-#             "xltime": pl.Float64,
-#             "trade-price": pl.Float64,
-#             "trade-volume": pl.Int32,
-#             "trade-stringflag": pl.Utf8,
-#             "trade-rawflag": pl.Utf8,
-#         },
-#     }
-
-
-
-#     # Dictionary to store concatenated DataFrames for each asset
-#     assets_data = {}
-
-#     def validate_and_fix_schema(df, expected_schema):
-#         for col, expected_type in expected_schema.items():
-#             if col not in df.columns:
-#                 raise ValueError(f"Missing column: {col}")
-            
-#             # If the column type does not match the expected type
-#             if df[col].dtype != expected_type:
-#                 # Handle Float64 columns
-#                 if expected_type == pl.Float64:
-#                     df = df.with_columns(
-#                         # Ensure the column is cast to Utf8 for string operations
-#                         pl.when(pl.col(col).cast(pl.Utf8).str.strip_chars().is_in(["", "()", None]))
-#                         .then(None)
-#                         .otherwise(pl.col(col).cast(pl.Utf8))
-#                         .str.replace_all(r"[^\d.]", "")  # Remove non-numeric characters
-#                         .cast(pl.Float64)  # Cast back to Float64
-#                         .alias(col)
-#                     )
-#                 # Handle Int32 columns
-#                 elif expected_type == pl.Int32:
-#                     df = df.with_columns(
-#                         # Ensure the column is cast to Utf8 for string operations
-#                         pl.when(pl.col(col).cast(pl.Utf8).str.strip_chars().is_in(["", "()", None]))
-#                         .then(None)
-#                         .otherwise(pl.col(col).cast(pl.Utf8))
-#                         .str.replace_all(r"[^\d]", "")  # Remove non-numeric characters
-#                         .cast(pl.Int32)  # Cast back to Int32
-#                         .alias(col)
-#                     )
-#                 else:
-#                     # Cast other types directly
-#                     df = df.with_columns(df[col].cast(expected_type).alias(col))
-#         return df
-
-#     for sector in tqdm(assets_tickers):
-#         del assets_data
-#         del schemas 
-#         schemas = {
-#             "bbo": {
-#                 "xltime": pl.Float64,
-#                 "bid-price": pl.Float64,
-#                 "bid-volume": pl.Int32,
-#                 "ask-price": pl.Float64,
-#                 "ask-volume": pl.Int32,
-#             },
-#             "trade": {
-#                 "xltime": pl.Float64,
-#                 "trade-price": pl.Float64,
-#                 "trade-volume": pl.Int32,
-#                 "trade-stringflag": pl.Utf8,
-#                 "trade-rawflag": pl.Utf8,
-#             },
-#         }
-
-#         assets_data = {}
-#         # Step 1: Iterate through yearly `.tar` files
-#         for yearly_tar_path in yearly_tar_files:
-#             print(f"Processing yearly tar: {yearly_tar_path}")
-            
-#             with tarfile.open(yearly_tar_path, "r") as outer_tar:
-#                 # Step 2: Iterate through files in the yearly `.tar`
-#                 for member in outer_tar.getmembers():
-#                     if member.isfile() and member.name.startswith(f"./{sector}") and member.name.endswith(".tar"):
-#                         print(f"Processing inner tar: {member.name}")
-                        
-#                         # Determine file type ("bbo" or "trade") based on the name
-#                         if "bbo" in member.name:
-#                             file_type = "bbo"
-#                             expected_schema = schemas["bbo"]
-#                         elif "trade" in member.name:
-#                             continue
-#                             file_type = "trade"
-#                             expected_schema = schemas["trade"]
-#                         else:
-#                             print(f"Skipping unknown file type: {member.name}")
-#                             continue
-                        
-#                         # Step 3: Extract the inner `.tar` file
-#                         inner_tar_data = BytesIO(outer_tar.extractfile(member).read())
-#                         with tarfile.open(fileobj=inner_tar_data, mode="r") as inner_tar:
-#                             parquet_files = []
-                            
-#                             for inner_member in inner_tar.getmembers():
-#                                 # Look for `.parquet` files
-#                                 if inner_member.isfile() and inner_member.name.endswith(".parquet"):
-#                                     parquet_data = BytesIO(inner_tar.extractfile(inner_member).read())
-#                                     df = pl.read_parquet(parquet_data)
-                                    
-#                                     # Validate and fix schema
-#                                     try:
-#                                         df = validate_and_fix_schema(df, expected_schema)
-#                                         parquet_files.append(df)
-#                                     except ValueError as e:
-#                                         print(f"Schema error in file {inner_member.name}: {e}")
-#                                         continue
-                            
-#                             # Step 4: Concatenate all Parquet files for this asset in the year
-#                             if parquet_files:
-#                                 combined_df = pl.concat(parquet_files, how="vertical")
-                                
-#                                 combined_df = set_timeseries(combined_df)
-#                                 # Extract asset name (e.g., `EWW.P_bbo` from `EWW.P_bbo_2007.tar`)
-#                                 asset_name = member.name.rsplit("_", 1)[0]
-                                
-#                                 # Append to the existing data for the same asset across years
-#                                 if asset_name in assets_data:
-#                                     assets_data[asset_name] = pl.concat([assets_data[asset_name], combined_df], how="vertical")
-#                                 else:
-#                                     assets_data[asset_name] = combined_df
-#                                 print(f"Combined DataFrame for {asset_name} now has {len(assets_data[asset_name])} rows.")
-
-#         # Step 5: Process or save the final combined DataFrames
-#         for asset_name, df in assets_data.items():
-
-#             print(f"\nFinal DataFrame for {asset_name}:\n{df}")
-#             # Example: Save to disk if needed
-#             # df.write_parquet(f"Data/{asset_name}_combined.parquet")
-
-#         if assets_data:
-#             k = sector
-            
-#             df = assets_data[f"./{k}.P_bbo"]
-
-#             df = df.with_columns(pl.col("datetime").diff().alias("time_diff"))
-
-#             # Calculate the average difference
-#             average_diff = df["time_diff"].drop_nulls().mean()
-
-#             print(f"Average time difference for {k}: {average_diff}")
-#             average_diffs[k] = average_diff
-#             del df
-#     return average_diffs
