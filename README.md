@@ -96,7 +96,7 @@ project/
 
 - **Clean Data**: This directory contains preprocessed ETF data in `.parquet` format, ready for analysis.
 - **Covariance Data**: This directory includes the precomputed covariance matrices stored in `covs_matrix.parquet`.
-- **ETF Data**: This directory holds the raw ETF data for the years 2007–2012, stored in `.tar` files.
+- **ETF Data**: This directory holds the raw ETF data for the years 2007–2012, stored in `.tar` files. (If you can't download this, most of the notebook is still runnable)
 
 ---
 
