@@ -9,10 +9,8 @@ This project focuses on estimating covariance correlations in large-scale financ
 2. [Directory Structure](#directory-structure)
 3. [Setup Instructions](#setup-instructions)
 4. [Data Sources](#data-sources)
-5. [Usage](#usage)
-6. [Dependencies](#dependencies)
-7. [Contributing](#contributing)
-8. [License](#license)
+5. [Dependencies](#dependencies)
+
 
 ---
 
